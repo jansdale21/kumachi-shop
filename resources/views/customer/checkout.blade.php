@@ -122,7 +122,7 @@
                     </section>
 
                     <section class="checkout-panel">
-                        <h2>Payment Method (Demo)</h2>
+                        <h2>Payment Method</h2>
                         <div class="checkout-options checkout-payment-options">
                             <label class="checkout-choice">
                                 <input type="radio" name="payment_method" value="card" {{ old('payment_method', 'card') === 'card' ? 'checked' : '' }}>
