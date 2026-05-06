@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class PlaceOrderRequest extends FormRequest
@@ -30,6 +31,7 @@ class PlaceOrderRequest extends FormRequest
 
         return [
             'order_type' => ['required', 'string', Rule::in(['pickup', 'delivery'])],
+            'scheduled_for' => ['required', 'date'],
             'payment_method' => ['required', 'string', Rule::in(['cash', 'card'])],
             'promo_code' => [
                 'nullable',
@@ -89,6 +91,48 @@ class PlaceOrderRequest extends FormRequest
             $paymentMethod = (string) $this->input('payment_method', 'cash');
             $user = $this->user();
 
+            $scheduledForRaw = (string) $this->input('scheduled_for', '');
+            try {
+                $scheduledFor = Carbon::parse($scheduledForRaw, config('app.timezone'));
+            } catch (\Throwable) {
+                $scheduledFor = null;
+            }
+
+            if (! $scheduledFor) {
+                $validator->errors()->add('scheduled_for', 'Please select a valid pickup/delivery time.');
+                return;
+            }
+
+            $maxDays = (int) config('shop.schedule_max_days', 7);
+            $now = now(config('app.timezone'));
+            if ($scheduledFor->lessThan($now->copy()->subMinutes(1))) {
+                $validator->errors()->add('scheduled_for', 'Scheduled time must be in the future.');
+                return;
+            }
+
+            if ($scheduledFor->greaterThan($now->copy()->addDays($maxDays))) {
+                $validator->errors()->add('scheduled_for', "Scheduled time must be within the next {$maxDays} days.");
+                return;
+            }
+
+            $weekday = (int) $scheduledFor->dayOfWeekIso; // 1..7
+            $hours = (array) config("shop.hours.{$weekday}", []);
+            $open = (string) ($hours['open'] ?? '');
+            $close = (string) ($hours['close'] ?? '');
+
+            if ($open === '' || $close === '') {
+                $validator->errors()->add('scheduled_for', 'Shop hours are not available for the selected date.');
+                return;
+            }
+
+            $openAt = Carbon::parse($scheduledFor->format('Y-m-d')." {$open}", config('app.timezone'));
+            $closeAt = Carbon::parse($scheduledFor->format('Y-m-d')." {$close}", config('app.timezone'));
+
+            if ($scheduledFor->lt($openAt) || $scheduledFor->gt($closeAt)) {
+                $validator->errors()->add('scheduled_for', "Please select a time within shop hours ({$open}–{$close}).");
+                return;
+            }
+
             if (
                 $user
                 && $orderType === 'pickup'
@@ -109,6 +153,7 @@ class PlaceOrderRequest extends FormRequest
 
         $this->merge([
             'promo_code' => $promoCode === '' ? null : $promoCode,
+            'scheduled_for' => trim((string) $this->input('scheduled_for', '')) ?: null,
         ]);
     }
 

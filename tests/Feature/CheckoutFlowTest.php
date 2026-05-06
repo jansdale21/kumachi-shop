@@ -16,6 +16,40 @@ class CheckoutFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    private function nextOpenScheduledFor(): string
+    {
+        $now = now(config('app.timezone'));
+        $maxDays = (int) config('shop.schedule_max_days', 7);
+
+        for ($i = 0; $i <= $maxDays; $i++) {
+            $date = $now->copy()->addDays($i);
+            $weekday = (int) $date->dayOfWeekIso;
+            $hours = (array) config("shop.hours.{$weekday}", []);
+            $open = (string) ($hours['open'] ?? '');
+            $close = (string) ($hours['close'] ?? '');
+
+            if ($open === '' || $close === '') {
+                continue;
+            }
+
+            $openAt = \Illuminate\Support\Carbon::parse($date->format('Y-m-d')." {$open}", config('app.timezone'));
+            $closeAt = \Illuminate\Support\Carbon::parse($date->format('Y-m-d')." {$close}", config('app.timezone'));
+
+            // pick the next 1-hour slot inside open hours
+            $candidate = $now->copy()->addHour();
+            if ($candidate->lt($openAt)) {
+                $candidate = $openAt->copy()->addMinutes(30);
+            }
+
+            if ($candidate->betweenIncluded($openAt, $closeAt)) {
+                return $candidate->format('Y-m-d H:i:s');
+            }
+        }
+
+        // fallback: 1 hour from now (may fail if config is mis-set)
+        return $now->copy()->addHour()->format('Y-m-d H:i:s');
+    }
+
     private function createUser(): User
     {
         $role = Role::query()->create([
@@ -60,6 +94,7 @@ class CheckoutFlowTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('checkout.store'), [
             'order_type' => 'pickup',
+            'scheduled_for' => $this->nextOpenScheduledFor(),
             'payment_method' => 'card',
             'card_holder_name' => 'Test User',
             'card_number' => '4111 1111 1111 1111',
@@ -102,6 +137,7 @@ class CheckoutFlowTest extends TestCase
 
         $response = $this->actingAs($user)->post(route('checkout.store'), [
             'order_type' => 'pickup',
+            'scheduled_for' => $this->nextOpenScheduledFor(),
             'payment_method' => 'card',
             'card_holder_name' => 'Test User',
             'card_number' => '4111 1111 1111 1111',

@@ -212,6 +212,7 @@ class CustomerOrderController extends Controller
                     'user_id' => $user->id,
                     'address_id' => $addressId,
                     'promotion_id' => $promotion?->id,
+                    'scheduled_for' => $validated['scheduled_for'] ?? null,
                     'order_type' => $validated['order_type'] ?? 'pickup',
                     'order_source' => 'online',
                     'status' => 'pending',

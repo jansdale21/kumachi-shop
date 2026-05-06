@@ -59,6 +59,25 @@
                         <x-input-error :messages="$errors->get('order_type')" class="products-form-error" />
                     </section>
 
+                    <section class="checkout-panel">
+                        <h2>Schedule</h2>
+                        <label class="checkout-mock-field">
+                            <span>Pickup/Delivery time</span>
+                            <input
+                                type="datetime-local"
+                                name="scheduled_for"
+                                value="{{ old('scheduled_for') }}"
+                                class="checkout-promo-input"
+                                step="{{ (int) config('shop.schedule_step_minutes', 15) * 60 }}"
+                                required
+                            >
+                        </label>
+                        <x-input-error :messages="$errors->get('scheduled_for')" class="products-form-error" />
+                        <p class="checkout-promo-hint">
+                            Please choose a time within shop hours. For pickup orders, arrive around your selected time to avoid cancellation.
+                        </p>
+                    </section>
+
                     <section class="checkout-panel" id="deliveryPanel">
                         <h2>Delivery Address</h2>
 

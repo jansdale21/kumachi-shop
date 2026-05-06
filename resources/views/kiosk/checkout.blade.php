@@ -11,6 +11,11 @@
             <form method="POST" action="{{ route('kiosk.checkout.store') }}" class="checkout-grid">
                 @csrf
                 <input type="hidden" name="order_type" value="pickup">
+                <input
+                    type="hidden"
+                    name="scheduled_for"
+                    value="{{ old('scheduled_for', now(config('app.timezone'))->addMinutes(30)->format('Y-m-d\\TH:i')) }}"
+                >
                 <div class="checkout-main">
                     <section class="checkout-panel">
                         <h2>Payment Method (Demo)</h2>
